@@ -1,0 +1,5 @@
+{
+  "name": "Square Snake",
+  "description": "A simple 16x8 tile snake game with walls and a score counter.",
+  "requestFramePermissions": []
+}
