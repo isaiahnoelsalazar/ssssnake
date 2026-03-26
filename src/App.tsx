@@ -112,33 +112,79 @@ export default function App() {
     });
   }, [food, isGameOver, isPaused, generateFood]);
 
+  const handleDirectionChange = useCallback((newDir: Direction) => {
+    if (isGameOver) return;
+    if (isPaused) setIsPaused(false);
+
+    switch (newDir) {
+      case 'UP':
+        if (directionRef.current !== 'DOWN') setDirection('UP');
+        break;
+      case 'DOWN':
+        if (directionRef.current !== 'UP') setDirection('DOWN');
+        break;
+      case 'LEFT':
+        if (directionRef.current !== 'RIGHT') setDirection('LEFT');
+        break;
+      case 'RIGHT':
+        if (directionRef.current !== 'LEFT') setDirection('RIGHT');
+        break;
+    }
+  }, [isGameOver, isPaused]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isGameOver) return;
-      
-      if (isPaused && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        setIsPaused(false);
-      }
-
       switch (e.key) {
         case 'ArrowUp':
-          if (directionRef.current !== 'DOWN') setDirection('UP');
+          handleDirectionChange('UP');
           break;
         case 'ArrowDown':
-          if (directionRef.current !== 'UP') setDirection('DOWN');
+          handleDirectionChange('DOWN');
           break;
         case 'ArrowLeft':
-          if (directionRef.current !== 'RIGHT') setDirection('LEFT');
+          handleDirectionChange('LEFT');
           break;
         case 'ArrowRight':
-          if (directionRef.current !== 'LEFT') setDirection('RIGHT');
+          handleDirectionChange('RIGHT');
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGameOver, isPaused]);
+  }, [handleDirectionChange]);
+
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const dx = touchEndX - touchStartRef.current.x;
+    const dy = touchEndY - touchStartRef.current.y;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (Math.abs(dx) > 30) {
+        if (dx > 0) handleDirectionChange('RIGHT');
+        else handleDirectionChange('LEFT');
+      }
+    } else {
+      if (Math.abs(dy) > 30) {
+        if (dy > 0) handleDirectionChange('DOWN');
+        else handleDirectionChange('UP');
+      }
+    }
+    touchStartRef.current = null;
+  };
 
   useEffect(() => {
     directionRef.current = direction;
@@ -172,7 +218,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4 font-sans text-zinc-900">
+    <div 
+      className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4 font-sans text-zinc-900 overflow-hidden touch-none"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Score Counter */}
       <div className="mb-8 flex flex-col items-center">
         <div className="flex items-center gap-2 text-zinc-400 text-xs uppercase tracking-widest font-semibold mb-1">
@@ -236,8 +286,8 @@ export default function App() {
               animate={{ opacity: 1 }}
               className="absolute inset-0 flex flex-col items-center justify-center bg-black/10 rounded-lg z-10 pointer-events-none"
             >
-              <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg text-sm font-bold text-zinc-600 animate-bounce">
-                Press any arrow key to start
+              <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg text-sm font-bold text-zinc-600 animate-bounce text-center">
+                Swipe or press any arrow key to start
               </div>
             </motion.div>
           )}
@@ -245,31 +295,34 @@ export default function App() {
       </div>
 
       {/* Controls Help (Mobile/Desktop) */}
-      <div className="mt-12 flex flex-col items-center gap-6">
+      <div className="mt-8 md:mt-12 flex flex-col items-center gap-6">
         <div className="grid grid-cols-3 gap-2">
           <div />
-          <ControlButton icon={<ArrowUp size={20} />} active={direction === 'UP'} />
+          <ControlButton icon={<ArrowUp size={24} />} active={direction === 'UP'} onClick={() => handleDirectionChange('UP')} />
           <div />
-          <ControlButton icon={<ArrowLeft size={20} />} active={direction === 'LEFT'} />
-          <ControlButton icon={<ArrowDown size={20} />} active={direction === 'DOWN'} />
-          <ControlButton icon={<ArrowRight size={20} />} active={direction === 'RIGHT'} />
+          <ControlButton icon={<ArrowLeft size={24} />} active={direction === 'LEFT'} onClick={() => handleDirectionChange('LEFT')} />
+          <ControlButton icon={<ArrowDown size={24} />} active={direction === 'DOWN'} onClick={() => handleDirectionChange('DOWN')} />
+          <ControlButton icon={<ArrowRight size={24} />} active={direction === 'RIGHT'} onClick={() => handleDirectionChange('RIGHT')} />
         </div>
-        <p className="text-zinc-400 text-xs uppercase tracking-widest font-medium">
-          Use Arrow Keys to Move
+        <p className="text-zinc-400 text-xs uppercase tracking-widest font-medium text-center">
+          Swipe, tap, or use arrow keys
         </p>
       </div>
     </div>
   );
 }
 
-function ControlButton({ icon, active }: { icon: React.ReactNode; active: boolean }) {
+function ControlButton({ icon, active, onClick }: { icon: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
-    <div className={`
-      w-12 h-12 flex items-center justify-center rounded-xl transition-all
-      ${active ? 'bg-emerald-500 text-white shadow-lg scale-110' : 'bg-white text-zinc-400 shadow-sm'}
-    `}>
+    <button 
+      onClick={onClick}
+      className={`
+        w-14 h-14 md:w-12 md:h-12 flex items-center justify-center rounded-xl transition-all active:scale-95
+        ${active ? 'bg-emerald-500 text-white shadow-lg scale-110' : 'bg-white text-zinc-400 shadow-sm hover:bg-zinc-50'}
+      `}
+    >
       {icon}
-    </div>
+    </button>
   );
 }
 
